@@ -41,6 +41,12 @@ async function handleLine(sb, raw, key) {
   }
 
   if (cls.kind === 'product') {
+    if (cls.create) {
+      // crée le produit dans Stocks s'il n'existe pas encore (stock de départ 0)
+      const { error: pErr } = await sb.from('products').upsert(
+        { id: cls.productId, name: cls.label, stock: 0, low_stock: 0 }, { onConflict: 'id', ignoreDuplicates: true });
+      if (pErr) throw new Error('products: ' + pErr.message);
+    }
     const { error } = await sb.rpc('adjust_stock', { p_id: cls.productId, p_delta: sign * p.qty });
     if (error) throw new Error('adjust_stock: ' + error.message);
     console.log(`Stock ${cls.label} ${sign > 0 ? '+' : '-'}${p.qty} (${p.player})`);
@@ -52,13 +58,41 @@ async function handleLine(sb, raw, key) {
     });
     if (error) throw new Error('coffre: ' + error.message);
     console.log(`Coffre ${sign > 0 ? '+' : '-'}${p.qty} $ (${p.player})`);
+    // Un DÉPÔT d'argent sale compte dans le salaire SEULEMENT si le joueur a retiré de la drogue récemment
+    // (fenêtre DRUG_WINDOW_HOURS, 12 h par défaut). Sinon : coffre seulement, pas de salaire.
+    // Pas de produit lié : le stock n'est pas touché, et le coffre n'est pas crédité une 2e fois.
+    if (p.action === 'depot') {
+      const hours = parseFloat(process.env.DRUG_WINDOW_HOURS || '12') || 12;
+      const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+      const { data: recent, error: rErr } = await sb.from('stock_logs').select('id')
+        .eq('player', p.player).eq('action', 'retrait').eq('kind', 'product').gte('ts', since).limit(1);
+      if (rErr) throw new Error('stock_logs (recherche): ' + rErr.message);
+      if (!recent || recent.length === 0) {
+        console.log(`  Dépôt de ${p.qty} $ par ${p.player} : pas de retrait de drogue dans les ${hours} h -> coffre seulement, pas de salaire.`);
+      } else {
+        if (!member) console.warn(`  ⚠ "${p.player}" n'est pas un membre du site : le dépôt ne compte pas dans les salaires (le nom doit être identique).`);
+        const { error: sErr } = await sb.from('sales').insert({
+          id: 'dl-' + key, product_id: null, product_name: 'Dépôt entrepôt (argent sale)', qty: 1, total: p.qty,
+          member_id: member ? member.id : null, member_name: p.player, ts: new Date().toISOString(),
+        });
+        if (sErr) throw new Error('sales: ' + sErr.message);
+        console.log(`Salaire +${p.qty} $ pour ${p.player}`);
+      }
+    }
   }
   return 'ok';
 }
 
 async function handleMessage(sb, msg) {
   const lines = linesOf(msg);
-  for (let i = 0; i < lines.length; i++) await handleLine(sb, lines[i], `${msg.id}-${i}`);
+  // Diagnostic : montre ce que le bot voit (texte du message, nombre d'embeds)
+  console.log(`[msg ${msg.id}] auteur=${msg.author ? msg.author.username : '?'} | texte=${(msg.content || '').length} car. | embeds=${(msg.embeds || []).length} | lignes=${lines.length}`);
+  if (lines.length === 0) console.log('  -> message VIDE : active "Message Content Intent" dans le portail Discord (Bot).');
+  for (let i = 0; i < lines.length; i++) {
+    console.log('  ligne: ' + lines[i].slice(0, 120));
+    const r = await handleLine(sb, lines[i], `${msg.id}-${i}`);
+    if (r === 'ignore') console.log('  -> ignorée (format ou objet non suivi)');
+  }
 }
 
 module.exports = { linesOf, handleLine, handleMessage };
