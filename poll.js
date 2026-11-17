@@ -61,17 +61,27 @@ if (require.main === module) {
     const { createClient } = require('@supabase/supabase-js');
     const { handleMessage } = require('./core');
     const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-    await runOnce({
-      sb,
-      handleMessage,
-      fetchMessages: async (after, firstRun) => {
-        if (firstRun) {
-          const r = await fetch(`${API}/channels/${LOG_CHANNEL_ID}/messages?limit=1`, { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } });
-          if (!r.ok) throw new Error(`Discord ${r.status}: ${await r.text()}`);
-          return await r.json();
-        }
-        return fetchNew(LOG_CHANNEL_ID, DISCORD_TOKEN, after);
-      },
-    });
+    const fetchMessages = async (after, firstRun) => {
+      if (firstRun) {
+        const r = await fetch(`${API}/channels/${LOG_CHANNEL_ID}/messages?limit=1`, { headers: { Authorization: `Bot ${DISCORD_TOKEN}` } });
+        if (!r.ok) throw new Error(`Discord ${r.status}: ${await r.text()}`);
+        return await r.json();
+      }
+      return fetchNew(LOG_CHANNEL_ID, DISCORD_TOKEN, after);
+    };
+
+    // Mode « boucle » : lit le salon toutes les INTERVAL_SECONDS pendant LOOP_SECONDS (délai ~20 s au lieu de 5 min)
+    const loopMs = (parseInt(process.env.LOOP_SECONDS || '0', 10) || 0) * 1000;
+    const everyMs = Math.max(5, parseInt(process.env.INTERVAL_SECONDS || '20', 10) || 20) * 1000;
+    const end = Date.now() + loopMs;
+    let ok = 0, fail = 0;
+    do {
+      try { await runOnce({ sb, handleMessage, fetchMessages }); ok++; }
+      catch (e) { fail++; console.error(e.message || e); }
+      if (Date.now() + everyMs >= end) break;
+      await new Promise(r => setTimeout(r, everyMs));
+    } while (Date.now() < end);
+    console.log(`Terminé : ${ok} lecture(s) réussie(s), ${fail} erreur(s).`);
+    if (ok === 0) process.exit(1);
   })().catch(e => { console.error(e); process.exit(1); });
 }
