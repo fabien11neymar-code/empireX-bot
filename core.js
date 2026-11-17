@@ -73,7 +73,7 @@ async function handleLine(sb, raw, key) {
         if (!member) console.warn(`  ⚠ "${p.player}" n'est pas un membre du site : le dépôt ne compte pas dans les salaires (le nom doit être identique).`);
         const { error: sErr } = await sb.from('sales').insert({
           id: 'dl-' + key, product_id: null, product_name: 'Dépôt entrepôt (argent sale)', qty: 1, total: p.qty,
-          member_id: member ? member.id : null, member_name: p.player, ts: new Date().toISOString(),
+          member_id: member ? member.id : null, member_name: p.player, coffre_added: false, ts: new Date().toISOString(),
         });
         if (sErr) throw new Error('sales: ' + sErr.message);
         console.log(`Salaire +${p.qty} $ pour ${p.player}`);
