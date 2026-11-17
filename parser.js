@@ -41,7 +41,7 @@ function classifyItem(item) {
   const label = baseName(item);
   const id = slug(label);
   if (!id) return null;
-  return { kind: 'product', productId: id, label, create: true };
+  return { kind: 'product', productId: id, label, create: true, generic: true };
 }
 
 module.exports = { parseLine, classifyItem, norm, baseName };
