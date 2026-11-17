@@ -1,0 +1,12 @@
+{
+  "name": "empire-x-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord Empire X : logs entrepôt -> stock + coffre",
+  "main": "bot.js",
+  "scripts": { "start": "node bot.js", "test": "node test-parser.js" },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.5"
+  }
+}
