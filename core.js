@@ -12,6 +12,25 @@ function linesOf(msg) {
   return out;
 }
 
+
+// Retrouve le produit du site (onglet Stocks) correspondant au nom de l'objet du log.
+// Comparaison sans accents/espaces/majuscules : "Cocaïne Pure À 80" -> produit "Cocaine", "Spore X" -> "SporeX".
+const squash = s => norm(s).replace(/[^a-z0-9]/g, '');
+let productsCache = { ts: 0, rows: [] };
+async function resolveProduct(sb, item) {
+  if (Date.now() - productsCache.ts > 30000) {
+    const { data } = await sb.from('products').select('id,name');
+    productsCache = { ts: Date.now(), rows: data || [] };
+  }
+  const n = squash(item);
+  let best = null;
+  for (const r of productsCache.rows) {
+    const k = squash(r.name);
+    if (k.length >= 3 && n.includes(k) && (!best || k.length > squash(best.name).length)) best = r;
+  }
+  return best;
+}
+
 let membersCache = { ts: 0, rows: [] };
 async function findMember(sb, name) {
   if (Date.now() - membersCache.ts > 60000) {
@@ -27,6 +46,11 @@ async function handleLine(sb, raw, key) {
   if (!p) return 'ignore';
   const cls = classifyItem(p.item);
   if (!cls) return 'ignore';
+  if (cls.kind === 'product' && cls.generic) {
+    const prod = await resolveProduct(sb, p.item);
+    if (!prod) { console.log(`  Objet "${p.item}" : aucun produit correspondant dans Stocks -> ignoré.`); return 'ignore'; }
+    cls.productId = prod.id; cls.label = prod.name; cls.create = false;
+  }
   const sign = p.action === 'depot' ? 1 : -1;
   const member = await findMember(sb, p.player);
 
