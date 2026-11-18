@@ -145,4 +145,4 @@ async function handleMessage(sb, msg) {
   }
 }
 
-module.exports = { linesOf, handleLine, handleMessage };
+module.exports = { linesOf, handleLine, handleMessage, resolveProduct, findMember, RAW_KEYWORDS };
