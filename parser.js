@@ -36,8 +36,6 @@ function classifyItem(item) {
   const n = norm(item);
   if (n.includes('argent sale')) return { kind: 'coffre', label: 'Argent sale' };
   if (IGNORE.some(k => n.includes(k))) return null;
-  if (n.includes('venia'))   return { kind: 'product', productId: 'venia',   label: 'Venia',   create: true };
-  if (n.includes('heroine')) return { kind: 'product', productId: 'heroine', label: 'Héroïne', create: true };
   const label = baseName(item);
   const id = slug(label);
   if (!id) return null;
