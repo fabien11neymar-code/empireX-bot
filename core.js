@@ -40,6 +40,11 @@ async function findMember(sb, name) {
   return membersCache.rows.find(m => norm(m.name) === norm(name)) || null;
 }
 
+// Produits dont seule la version PURIFIÉE compte dans le stock (la brute est ignorée : elle sert à purifier).
+// Noms sans accents/espaces/majuscules, comme dans l'onglet Stocks. Ajoute/retire ici selon tes drogues.
+const PURE_ONLY = ['weed', 'mexicana', 'venia', 'cocaine'];
+const isPure = item => /\bpur(e|es|ifie|ifier|ifiee)?\b/.test(norm(item));
+
 // Traite une ligne de log. Lance une erreur si l'écriture échoue (pour réessayer plus tard).
 async function handleLine(sb, raw, key) {
   const p = parseLine(raw);
@@ -50,6 +55,9 @@ async function handleLine(sb, raw, key) {
     const prod = await resolveProduct(sb, p.item);
     if (!prod) { console.log(`  Objet "${p.item}" : aucun produit correspondant dans Stocks -> ignoré.`); return 'ignore'; }
     cls.productId = prod.id; cls.label = prod.name; cls.create = false;
+    if (PURE_ONLY.includes(squash(prod.name)) && !isPure(p.item)) {
+      console.log(`  "${p.item}" : drogue brute de ${prod.name} (seule la pure compte) -> ignorée.`); return 'ignore';
+    }
   }
   const sign = p.action === 'depot' ? 1 : -1;
   const member = await findMember(sb, p.player);
