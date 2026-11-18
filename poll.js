@@ -7,7 +7,7 @@ async function fetchNew(channelId, token, afterId) {
   // Discord renvoie du plus récent au plus ancien, 100 max : on boucle
   const all = [];
   let after = afterId;
-  for (let page = 0; page < 20; page++) {
+  for (let page = 0; page < 150; page++) {
     const url = `${API}/channels/${channelId}/messages?limit=100` + (after ? `&after=${after}` : '');
     const r = await fetch(url, { headers: { Authorization: `Bot ${token}` } });
     if (!r.ok) throw new Error(`Discord ${r.status}: ${await r.text()}`);
