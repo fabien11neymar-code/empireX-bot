@@ -45,6 +45,20 @@ async function findMember(sb, name) {
 const PURE_ONLY = ['weed', 'mexicana', 'venia', 'cocaine'];
 const isPure = item => /\bpur(e|es|ifie|ifier|ifiee)?\b/.test(norm(item));
 
+// Mots-clés de drogue BRUTE sans produit dans Stocks (ex. Cannabis, Pochon de Mexicana) : pas de stock,
+// mais si le joueur en RETIRE, ça compte comme "a pris de la drogue" pour le salaire. Ajoute tes mots ici.
+const RAW_KEYWORDS = ['cannabis', 'pochon'];
+
+// Enregistre un retrait de drogue brute (sans toucher au stock) : sert seulement à la règle du salaire.
+async function logRawRetrait(sb, p, key) {
+  const { error } = await sb.from('stock_logs').insert({
+    id: key, player: p.player, action: p.action, qty: p.qty, item: p.item,
+    kind: 'product', product_id: null, ts: new Date().toISOString(),
+  });
+  if (error && error.code !== '23505') throw new Error('stock_logs: ' + error.message);
+  console.log(`  Retrait de drogue brute "${p.item}" par ${p.player} : stock inchangé, compte pour le salaire.`);
+}
+
 // Traite une ligne de log. Lance une erreur si l'écriture échoue (pour réessayer plus tard).
 async function handleLine(sb, raw, key) {
   const p = parseLine(raw);
@@ -53,9 +67,13 @@ async function handleLine(sb, raw, key) {
   if (!cls) return 'ignore';
   if (cls.kind === 'product' && cls.generic) {
     const prod = await resolveProduct(sb, p.item);
-    if (!prod) { console.log(`  Objet "${p.item}" : aucun produit correspondant dans Stocks -> ignoré.`); return 'ignore'; }
+    if (!prod) {
+      if (p.action === 'retrait' && RAW_KEYWORDS.some(k => norm(p.item).includes(k))) { await logRawRetrait(sb, p, key); return 'ok'; }
+      console.log(`  Objet "${p.item}" : aucun produit correspondant dans Stocks -> ignoré.`); return 'ignore';
+    }
     cls.productId = prod.id; cls.label = prod.name; cls.create = false;
     if (PURE_ONLY.includes(squash(prod.name)) && !isPure(p.item)) {
+      if (p.action === 'retrait') { await logRawRetrait(sb, p, key); return 'ok'; }
       console.log(`  "${p.item}" : drogue brute de ${prod.name} (seule la pure compte) -> ignorée.`); return 'ignore';
     }
   }
