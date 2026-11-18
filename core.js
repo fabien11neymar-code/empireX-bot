@@ -37,7 +37,10 @@ async function findMember(sb, name) {
     const { data } = await sb.from('members').select('id,name');
     membersCache = { ts: Date.now(), rows: data || [] };
   }
-  return membersCache.rows.find(m => norm(m.name) === norm(name)) || null;
+  const sq = x => norm(x).replace(/[^a-z0-9]/g, '');
+  const found = membersCache.rows.find(m => norm(m.name) === norm(name)) || membersCache.rows.find(m => sq(m.name) === sq(name)) || null;
+  if (!found && !findMember.warned) { findMember.warned = true; console.log('  Membres connus du site : ' + membersCache.rows.map(m => `"${m.name}"`).join(', ') + ` | introuvable : "${name}" (${[...name].map(ch => ch.charCodeAt(0).toString(16)).join(' ')})`); }
+  return found;
 }
 
 // Produits dont seule la version PURIFIÉE compte dans le stock (la brute est ignorée : elle sert à purifier).
