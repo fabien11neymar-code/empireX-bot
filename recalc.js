@@ -28,12 +28,20 @@ async function recalc({ sb, messages, apply, hours }) {
       }
     }
   }
+  // Ventes / actions déjà notées à la main (pas celles du bot) : un dépôt de même montant à ±3 h = même argent, on ne le recompte pas
+  const manual = [];
+  for (const [tbl, col] of [['sales', 'total'], ['actions', 'amount']]) {
+    const { data } = await sb.from(tbl).select('*');
+    for (const r of data || []) if (!String(r.id).startsWith('dl-')) manual.push({ tbl, amount: Math.round(r[col] || 0), ts: new Date(r.ts).getTime() });
+  }
   const added = [], skipped = [];
   for (const d of deposits) {
     const had = (drug[d.p.player] || []).some(t => t <= d.ts && d.ts - t <= win);
     if (!had) { skipped.push(d); continue; }
     const { data: ex } = await sb.from('sales').select('id').eq('id', 'dl-' + d.key).maybeSingle();
     if (ex) continue;                                   // déjà compté
+    const dup = manual.find(x => x.amount === Math.round(d.p.qty) && Math.abs(x.ts - d.ts) <= 3 * 3600 * 1000);
+    if (dup) { console.log(`DÉJÀ NOTÉ À LA MAIN (${dup.tbl}) : ${d.p.player} ${d.p.qty} $ -> ignoré`); continue; }
     const member = await findMember(sb, d.p.player);
     console.log(`${apply ? 'AJOUT' : 'À AJOUTER'} : ${d.p.player} +${d.p.qty} $ (${new Date(d.ts).toLocaleString('fr-FR')})${member ? '' : '  ⚠ nom inconnu sur le site'}`);
     if (apply) {
