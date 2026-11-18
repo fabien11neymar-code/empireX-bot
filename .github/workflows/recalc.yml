@@ -1,0 +1,29 @@
+name: Recalcul des salaires
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'Depuis quelle date (AAAA-MM-JJ), ex. 2026-11-16 = lundi de la semaine'
+        required: true
+      apply:
+        description: 'Écrire vraiment ? (false = simulation seulement, true = ajoute)'
+        required: true
+        default: 'false'
+jobs:
+  recalc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install @supabase/supabase-js@2 --no-save --no-audit --no-fund
+      - run: node recalc.js
+        env:
+          SINCE: ${{ github.event.inputs.since }}
+          DRY_RUN: ${{ github.event.inputs.apply == 'true' && 'false' || 'true' }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          LOG_CHANNEL_ID: ${{ secrets.LOG_CHANNEL_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
