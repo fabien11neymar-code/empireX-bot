@@ -11,6 +11,7 @@ const toSnowflake = ms => ((BigInt(ms) - 1420070400000n) << 22n).toString();
 
 async function recalc({ sb, messages, apply, hours }) {
   const win = hours * 3600 * 1000;
+  if (messages.length) console.log(`Dernier message relu : ${messages[messages.length-1].timestamp}`);
   const drug = {};            // joueur -> [timestamps de retraits de drogue]
   const deposits = [];        // dépôts d'argent sale
   for (const m of messages) {
@@ -37,9 +38,9 @@ async function recalc({ sb, messages, apply, hours }) {
   const added = [], skipped = [];
   for (const d of deposits) {
     const had = (drug[d.p.player] || []).some(t => t <= d.ts && d.ts - t <= win);
-    if (!had) { skipped.push(d); continue; }
+    if (!had) { skipped.push(d); console.log(`SANS RETRAIT DE DROGUE AVANT : ${d.p.player} ${d.p.qty} $ (${new Date(d.ts).toLocaleString('fr-FR')}) -> ignoré`); continue; }
     const { data: ex } = await sb.from('sales').select('id').eq('id', 'dl-' + d.key).maybeSingle();
-    if (ex) continue;                                   // déjà compté
+    if (ex) { console.log(`DÉJÀ COMPTÉ AU SALAIRE : ${d.p.player} ${d.p.qty} $ (${new Date(d.ts).toLocaleString('fr-FR')})`); continue; }
     const dup = manual.find(x => x.amount === Math.round(d.p.qty) && Math.abs(x.ts - d.ts) <= 3 * 3600 * 1000);
     if (dup) { console.log(`DÉJÀ NOTÉ À LA MAIN (${dup.tbl}) : ${d.p.player} ${d.p.qty} $ -> ignoré`); continue; }
     const member = await findMember(sb, d.p.player);
