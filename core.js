@@ -45,7 +45,7 @@ async function findMember(sb, name) {
 
 // Produits dont seule la version PURIFIÉE compte dans le stock (la brute est ignorée : elle sert à purifier).
 // Noms sans accents/espaces/majuscules, comme dans l'onglet Stocks. Ajoute/retire ici selon tes drogues.
-const PURE_ONLY = ['weed', 'mexicana', 'venia', 'cocaine'];
+const PURE_ONLY = ['weed', 'mexicana', 'venia', 'cocaine', 'sporex'];
 const isPure = item => /\bpur(e|es|ifie|ifier|ifiee)?\b/.test(norm(item));
 
 // Mots-clés de drogue BRUTE sans produit dans Stocks (ex. Cannabis, Pochon de Mexicana) : pas de stock,
